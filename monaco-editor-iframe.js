@@ -166,10 +166,11 @@
         height: 100%;
       }
       .debug-red {
-        background : red;
+        background : #FFE8E2;
       }
       .debug-green {
-        background : green;
+        background : #E0FDED
+        ;
       }
       html,body {
         margin : 0px;
@@ -197,7 +198,8 @@
 
     loaderOnLoad(libPath, opts = {}) {
       return `
-            var editorReference = "${opts.editorReference}"
+            var editorReference = "${opts.editorReference}";
+            var disableFirstLastLine = ${opts.disableFirstLastLine}
             var proxy = {};
             var queue = [];
             
@@ -220,6 +222,10 @@
               // ]
               proxy.model = proxy.editor.getModel();
               proxy.model.onDidChangeContent(() => {
+                if(disableFirstLastLine) {
+                  let count = proxy.model.getLineCount();
+                  proxy.model.setEditableRange(new monaco.Range(2,1,count,1));
+                }
                 parent.postMessage({editorReference: editorReference, event: 'value-changed', details: proxy.model.getValue()}, parent.document.location.href);
               });
               proxy.editor.onDidFocusEditor(() => {
@@ -238,7 +244,6 @@
                     if(lib.convert)
                         types = types.replace(new RegExp('default ', 'g'), '').split('export').join('declare');
                     monaco.languages.typescript.typescriptDefaults.addExtraLib(types, lib.name);
-                    console.log('Added lib ', lib.name);
                 }
             }
 
@@ -261,14 +266,18 @@
                 return;
               }
               if (event === 'setValue') {
-                proxy.editor.getModel().setValue(args[0]);
+                let currentValue = proxy.editor.getModel().getValue();
+                let newValue = args[0];
+                if(currentValue != newValue) {
+                  proxy.editor.getModel().setValue(args[0]);
+                }
                 return;
               }
               if(event === 'highlightLine') {
                 proxy.editor.decorationList = [];
                 var debugInfo = args[0];
                 Object.keys(debugInfo).forEach(function (line) {
-                  var lineNo = line - 2;
+                  var lineNo = line - 1;
                   var status = debugInfo[line] === 0 ? 'debug-red' : 'debug-green';
                   proxy.editor.decorationList.push({
                       range: new monaco.Range(lineNo,1,lineNo,1),
@@ -286,7 +295,6 @@
                 }
               }
               if(event === 'addLibs') {
-                console.log('loading libs ', args[0])
                 var libs = args[0];
                 loadLibs(libs);
               }
@@ -301,7 +309,7 @@
                 path.forEach(k => { cmd = cmd[k]; });
                 cmd[event](...args);
               } catch (err) {
-                console.error(err);
+                // console.error(err);
               }
             }
       `;

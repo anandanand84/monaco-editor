@@ -287,6 +287,14 @@ class MonacoEditor extends Polymer.Element {
         readonly: true
       },
       /**
+       * Used only for tlab where it disables the first and last line of function declaration
+       * @type {Boolean}
+       */
+      disableFirstLastLine: {
+        type: Boolean,
+        value: false
+      },
+      /**
        * Configurations for the editor. For a full list of parameters, visit
        * [here](https://microsoft.github.io/monaco-editor/api/interfaces/monaco.editor.ieditorconstructionoptions.html).
        * @type {Object}
@@ -410,10 +418,6 @@ class MonacoEditor extends Polymer.Element {
         }
       },
       /** @type {Boolean} */
-      _incomingValue: {
-        type: Boolean
-      },
-      /** @type {Boolean} */
       _syncValue: {
         type: Boolean
       },
@@ -435,7 +439,6 @@ class MonacoEditor extends Polymer.Element {
 
   static get observers() {
     return [
-      '_init(monaco)',
       '_valueChanged(value,editor)',
       'setTheme(theme,monaco)',
       'setModelLanguage(language,monaco)',
@@ -457,22 +460,7 @@ class MonacoEditor extends Polymer.Element {
       .join('\n');
     if (text.length > 0) this.set('value', text);
 
-    if (this._isInShadowRoot(this)) {
-      return this._initIFrame();
-    }
-
-    require.config({
-      paths: {vs: this.libPath}
-    });
-
-    if (!window.monaco) {
-      require(['vs/editor/editor.main'], () => {
-        this._setMonaco(monaco);
-      });
-    }
-
-    this._syncSchemaListener = this._syncSchema.bind(this);
-    this.addEventListener('mouseenter', this._syncSchemaListener);
+    this._initIFrame();
 
     // load and insert style into shadowRoot
     /* PolymerVis.insertCssIntoShadowRoot(
@@ -521,12 +509,8 @@ class MonacoEditor extends Polymer.Element {
 
   _valueChanged(value) {
     if (!this.editor) return;
-    if (this._syncValue) {
-      return this.set('_syncValue', false);
-    }
-    this.set('_incomingValue', true);
+    if (this._syncValue)  return 
     this.editor && this.editor.getModel().setValue(value);
-    this.dispatchEvent(new CustomEvent('value-changed', {detail: {value}}));
   }
 
   _getOptions(opt = {}) {
@@ -593,8 +577,9 @@ class MonacoEditor extends Polymer.Element {
     window.addEventListener('message', ({data}) => {
       if(data.editorReference !== this.editorReference) return;
       if (data.event === 'value-changed') {
-        this.set('_syncValue', true);
-        this.set('value', data.details);
+          this._syncValue = true;
+          this.set('value', data.details);
+          this._syncValue = false;
       }
       if (data.action === 'editor-focused') {
         this._syncSchema();
@@ -605,7 +590,7 @@ class MonacoEditor extends Polymer.Element {
     iframe.resize(this.clientWidth, this.clientHeight);
     iframe.init(
       this.libPath,
-      this._getOptions({value: this.value, language: this.language, editorReference : this.editorReference})
+      this._getOptions({value: this.value, language: this.language, editorReference : this.editorReference, disableFirstLastLine: this.disableFirstLastLine})
     );
     this._setEditor(iframe.editor);
     this._setMonaco(iframe.monaco);
@@ -620,34 +605,6 @@ class MonacoEditor extends Polymer.Element {
       node = node.parentNode;
     }
     return false;
-  }
-
-  _init() {
-    if (!this.monaco || this.editor) return;
-
-
-    var opts = {
-      value: this.value,
-      language: this.language
-    };
-    var editor = this.monaco.editor.create(this, this._getOptions(opts));
-
-    var disposable = editor.onDidFocusEditor(() => {
-      this._syncSchema();
-    });
-    this._disposables.push(disposable);
-
-    var model = editor.getModel();
-    model.onDidChangeContent(() => {
-      if (!this._incomingValue) {
-        this.set('_syncValue', true);
-        this.set('value', model.getValue());
-      } else {
-        this.set('_incomingValue', false);
-      }
-    });
-    this._setEditor(editor);
-    this.dispatchEvent(new CustomEvent('monaco-ready'));
   }
 }
 

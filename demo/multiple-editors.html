@@ -18,6 +18,7 @@
           minimap
           name="editor"
           theme="vs-dark"
+          disable-first-last-line
           language="typescript"
           value="{{_content2}}"></monaco-editor>
     </template>
@@ -39,7 +40,7 @@
 
                     _content2: {
                         type: String,
-                        value: 'Hello Moon',
+                        value: '',
                         observer: '_onContent2Changed'
                     }
                 }
