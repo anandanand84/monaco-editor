@@ -1,6 +1,6 @@
 {
   "name": "monaco-editor-polymer",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A Polymer 2.0 element for Monaco Editor, a browser-based code editor.",
   "main": "monaco-elements.html",
   "scripts": {
